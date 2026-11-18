@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Electron: 主进程",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": { "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd" },
+      "args": [".", "--remote-debugging-port=9223"],
+      "outputCapture": "std",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Electron: 界面",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9223,
+      "urlFilter": "app://*",
+      "webRoot": "${workspaceFolder}/ui",
+      "pathMapping": { "app://ui/": "${workspaceFolder}/ui/" },
+      "timeout": 30000
+    }
+  ],
+  "compounds": [
+    { "name": "Electron: 全部（主进程 + 界面）", "configurations": ["Electron: 主进程", "Electron: 界面"], "stopAll": true }
+  ]
+}

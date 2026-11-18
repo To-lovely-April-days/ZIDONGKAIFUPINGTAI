@@ -1,0 +1,38 @@
+{
+  "name": "htlab-ars",
+  "productName": "HTLAB 自动开釜工作站",
+  "version": "1.0.0",
+  "description": "HTLAB 自动开釜工作站上位机软件（Electron）",
+  "author": "HTLAB 霍桐仪器",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "smoke": "electron . --smoke",
+    "postinstall": "node scripts/vendor-three.js",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.htlab.ars",
+    "productName": "HTLAB 自动开釜工作站",
+    "artifactName": "HTLAB-ARS-${version}-${os}-${arch}.${ext}",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["electron/**", "ui/**", "package.json", "!ui/**/*.map"],
+    "asar": true,
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "shortcutName": "HTLAB 自动开釜工作站" },
+    "linux": { "target": ["AppImage", "deb"], "category": "Science", "maintainer": "HTLAB" },
+    "mac": { "target": ["dmg"], "category": "public.app-category.productivity" }
+  }
+}

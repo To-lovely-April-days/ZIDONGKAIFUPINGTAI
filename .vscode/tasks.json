@@ -1,0 +1,10 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "启动应用", "type": "npm", "script": "start", "problemMatcher": [] },
+    { "label": "冒烟测试（含完整任务）", "type": "shell", "command": "npm run smoke", "options": { "env": { "SMOKE_RUN": "1" } }, "problemMatcher": [] },
+    { "label": "打包 Windows", "type": "npm", "script": "dist:win", "problemMatcher": [] },
+    { "label": "打包 Linux", "type": "npm", "script": "dist:linux", "problemMatcher": [] },
+    { "label": "打包 macOS", "type": "npm", "script": "dist:mac", "problemMatcher": [] }
+  ]
+}

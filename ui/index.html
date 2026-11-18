@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HTLAB 自动开釜工作站</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/views.css">
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head>
+<body>
+<div class="app">
+
+<div class="titlebar">
+  <div class="ic">H</div>
+  <span id="tbTitle">HTLAB 自动开釜工作站</span>
+  <span class="ver">v1.0</span>
+  <span class="sp"></span>
+  <span class="lk" data-link="settings">关于</span><span class="lk" data-link="settings">设置</span><span class="lk">帮助</span>
+  <div class="win">
+    <div data-win="min" title="最小化"><svg width="10" height="10"><path d="M0 5h10" stroke="#ddd"/></svg></div>
+    <div data-win="max" title="最大化"><svg width="10" height="10"><rect x=".5" y=".5" width="9" height="9" fill="none" stroke="#ddd"/></svg></div>
+    <div class="x" data-win="close" title="关闭"><svg width="10" height="10"><path d="M0 0l10 10M10 0L0 10" stroke="#ddd"/></svg></div>
+  </div>
+</div>
+
+<div class="menubar">
+  <img class="logo" src="assets/htlab-logo.png" alt="HTLAB 霍桐仪器">
+  <div class="prod"><b>自动开釜工作站</b><span>Auto Reactor Opening Station</span></div>
+  <div class="menu">
+    <span class="mi" data-view="home">首页</span>
+    <span class="mi" data-view="devices">设备布局</span>
+    <span class="mi" data-view="recipes">工艺配方</span>
+    <span class="mi" data-view="run">运行监控</span>
+    <span class="mi" data-view="records">数据记录</span>
+    <span class="mi" data-view="settings">系统设置</span>
+  </div>
+  <span class="mb-sp"></span>
+  <div class="simbar">
+    <div class="label" id="simLabel">仿真模式<small>无任务</small></div>
+    <button class="rbtn play" id="btnStart" title="启动 (Space)"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 1.5v11l9.5-5.5z" fill="#fff"/></svg></button>
+    <button class="rbtn" id="btnPause" title="暂停"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 1h3v10H2zM7 1h3v10H7z" fill="#fff"/></svg></button>
+    <button class="rbtn" id="btnStep" title="单步"><svg width="14" height="12" viewBox="0 0 14 12"><path d="M1 1v10l7-5zM9.5 1h2.5v10H9.5z" fill="#fff"/></svg></button>
+    <button class="rbtn" id="btnReset" title="复位"><svg width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 7A4.5 4.5 0 1 1 7 2.5h2.5" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M8.5 0l3 2.5-3 2.5z" fill="#fff"/></svg></button>
+  </div>
+  <button class="estop" id="btnEstop" title="急停">急停</button>
+  <div class="user" id="userBox"><div class="av"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" fill="#888"/><path d="M2 15c0-3.5 2.7-5.5 6-5.5s6 2 6 5.5" fill="#888"/></svg></div><div><b id="userName">Administrator</b><span id="userRole">管理员权限</span></div>
+    <div class="umenu" id="userMenu"></div></div>
+</div>
+
+<div class="views">
+<section class="view" id="view-home"></section>
+<section class="view" id="view-devices"></section>
+<section class="view" id="view-recipes"></section>
+<section class="view" id="view-run"><div class="page">
+  <div class="runtop">
+    <h2>运行监控<small>Run Monitor</small></h2>
+    <button class="btn-p" id="btnNewJob">新建任务</button>
+    <button class="btn-s" id="btnAbort">中止任务</button>
+    <span class="lbl" style="margin-left:10px">仿真倍速</span>
+    <select class="sel" id="speed"><option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select>
+    <span class="sp"></span>
+    <div class="leds">
+      <span class="chip" id="chipState">系统 <b>待机</b></span>
+      <span class="chip err" id="chipLock">开釜联锁 <b>锁定</b></span>
+      <span class="chip" id="chipP">釜压 <b>--</b></span>
+    </div>
+  </div>
+
+  <div class="runbody">
+    <!-- steps -->
+    <div class="pane pane-steps">
+      <div class="pane-content">
+        <div class="steps-scroll">
+          <div class="job">
+            <div class="job-top"><span class="job-id" id="jobId">未创建任务</span><span class="job-st" id="jobSt">待启动</span></div>
+            <div class="job-meta" id="jobMeta"></div>
+            <div class="job-time"><div><span>已用时</span><b id="tlEl">00:00.0</b></div><div><span>预计剩余</span><b id="tlRem">--</b></div><div><span>步骤</span><b id="tlCnt">0 / 0</b></div></div>
+            <div class="trk"><i id="tlBar"></i></div>
+          </div>
+          <div class="sec"><span class="tg" style="background:var(--c-arm)">A</span>开盖 · 开塞 · 投料<span class="rule"></span></div>
+          <ul class="steps" id="listA"></ul>
+          <div class="sec"><span class="tg" style="background:var(--c-rx)">B</span>开釜 · 泄压联锁<span class="rule"></span></div>
+          <ul class="steps" id="listB"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- view -->
+    <div class="pane pane-view">
+      <div class="pane-content">
+        <div class="viewtitle">
+          <span class="t">自动开釜平台</span>
+          <button class="btn" onclick="window.resetView3D&&resetView3D()">复位视角</button><span class="hint">左键拖动旋转 · 滚轮缩放 · 右键平移</span>
+          <div class="legend"><span style="--c:var(--c-arm)">机械臂</span><span style="--c:var(--c-cap)">开盖</span><span style="--c:var(--c-plug)">开塞</span><span style="--c:var(--c-rx)">开釜</span></div>
+        </div>
+        <div class="scene-wrap">
+<div id="three"><div id="loading3d">3D 场景加载中…</div></div>
+          <div hidden>
+            <div class="plate" id="pl-rx" style="--pc:var(--c-rx)">④ 开釜模块 RX-01</div>
+            <div class="plate" id="pl-tray" style="--pc:#8a8a8a">样品位 S-01</div>
+            <div class="plate" id="pl-arm" style="--pc:var(--c-arm)">① 六轴机械臂 ARM-01</div>
+            <div class="plate" id="pl-cap" style="--pc:var(--c-cap)">② 开盖模块 CAP-01</div>
+            <div class="plate" id="pl-plug" style="--pc:var(--c-plug)">③ 开塞模块 PLG-01</div>
+            <div class="rxtag" id="rxTag"></div>
+          </div>
+          <div class="estop-banner"><div>紧急停止</div></div>
+        </div>
+        <div class="statusrow">
+          <div class="stat" id="card-arm" style="--mc:var(--c-arm)">
+            <div class="sb"></div><div class="sn">机械臂</div>
+            <div class="sc"><div class="top">ARM-01 · 六轴协作<span class="pill" id="pill-arm">空闲</span></div>
+              <div class="lines">
+                <div class="m"><span>TCP X/Z</span><b id="aTcp">--</b></div>
+                <div class="m"><span>夹爪</span><b id="aGrip">--</b></div>
+                <div class="m"><span>负载</span><b id="aLoad">--</b></div>
+                <div class="m"><span>瓶体倾角</span><b id="aTilt">--</b></div>
+              </div></div>
+          </div>
+          <div class="stat" id="card-cap" style="--mc:var(--c-cap)">
+            <div class="sb"></div><div class="sn">开盖</div>
+            <div class="sc"><div class="top">CAP-01 · 旋拧开盖<span class="pill" id="pill-cap">空闲</span></div>
+              <div class="lines">
+                <div class="m"><span>底部夹紧</span><b id="cJaw">--</b></div>
+                <div class="m"><span>顶部夹爪</span><b id="cFin">--</b></div>
+                <div class="m"><span>旋转角度</span><b id="cRot">--</b></div>
+                <div class="m"><span>升降</span><b id="cZ">--</b></div>
+                <div class="m"><span>扭矩</span><b id="cTq">--</b></div>
+                <div class="m"><span>瓶盖</span><b id="cCap">--</b></div>
+              </div></div>
+          </div>
+          <div class="stat" id="card-plug" style="--mc:var(--c-plug)">
+            <div class="sb"></div><div class="sn">开塞</div>
+            <div class="sc"><div class="top">PLG-01 · 充气针拔塞<span class="pill" id="pill-plug">空闲</span></div>
+              <div class="lines">
+                <div class="m"><span>底部夹紧</span><b id="pJaw">--</b></div>
+                <div class="m"><span>针头行程</span><b id="pZ">--</b></div>
+                <div class="m"><span>充气压力</span><b id="pAir">--</b></div>
+                <div class="m"><span>胶塞</span><b id="pPlug">--</b></div>
+              </div></div>
+          </div>
+          <div class="stat" id="card-rx" style="--mc:var(--c-rx)">
+            <div class="sb"></div><div class="sn">开釜</div>
+            <div class="sc"><div class="top">RX-01 · 卡箍釜盖<span class="pill" id="pill-rx">空闲</span></div>
+              <div class="lines">
+                <div class="m"><span>泄压阀</span><b id="rVent">--</b></div>
+                <div class="m"><span>卡箍</span><b id="rClamp">--</b></div>
+                <div class="m"><span>釜盖</span><b id="rLid">--</b></div>
+                <div class="m"><span>液位</span><b id="rLvl">--</b></div>
+              </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- side -->
+    <div class="pane pane-side">
+      <div class="pane-content">
+        <div class="side-scroll pp">
+          <section class="ps">
+            <div class="psh"><h4>流程进度</h4><span id="progTxt">0 / 0 步</span></div>
+            <div class="prog2"><div class="prog2-top"><span>总进度</span><b><em id="progPct">0</em>%</b></div><div class="trk"><i id="progBar"></i></div></div>
+            <div class="lane"><span class="tg" style="--c:var(--c-arm)">A</span><span class="lk2">开盖 · 开塞 · 投料</span><b id="lineA">待启动</b></div>
+            <div class="lane"><span class="tg" style="--c:var(--c-rx)">B</span><span class="lk2">开釜 · 泄压</span><b id="lineB">待启动</b></div>
+          </section>
+
+          <section class="ps">
+            <div class="psh"><h4>反应釜 R-01</h4><span id="mState" class="mst">高压</span></div>
+            <div class="read"><b id="gVal">--</b><em>MPa</em><span class="rl">釜内压力</span></div>
+            <div class="scl"><div class="trk"><div class="safe"></div></div><i id="mPtr"></i><div class="tk2"><span>0</span><span>1.0</span><span>2.0</span><span>3.0 MPa</span></div></div>
+            <div class="stats">
+              <div><span>釜内温度</span><b id="rT">--</b></div>
+              <div><span>开釜联锁</span><b><i class="sq" id="lockSq"></i><span id="rLock">--</span></b></div>
+              <div><span>安全上限</span><b id="safeTxt">0.050 MPa</b></div>
+              <div id="simBox"><span>初始釜压 · 仿真</span><b><input type="number" id="inP0" value="2.40" step="0.1" min="0" max="3"></b></div>
+            </div>
+            <div class="acts">
+              <label class="chk2"><input type="checkbox" id="inFault"> 模拟泄压阀故障</label>
+              <button class="ob" id="btnTryOpen">手动开釜</button>
+            </div>
+          </section>
+
+          <section class="ps">
+            <div class="psh"><h4>机械臂关节</h4><span>ARM-01 · ±180°</span></div>
+            <div class="jrows" id="joints"></div>
+          </section>
+
+          <section class="ps logc">
+            <div class="psh"><h4>事件日志</h4><span id="alarmCnt">无报警</span></div>
+            <div class="logwrap" id="logwrap"><table class="lt"><tbody id="log"></tbody></table></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+<section class="view" id="view-records"></section>
+<section class="view" id="view-settings"></section>
+</div>
+
+<div class="statusbar">
+  <span id="sbPlc"></span>
+  <span id="sbArm"></span>
+  <span><i class="dot"></i>伺服 / 气源 正常</span>
+  <span class="sp"></span>
+  <span>空格键 启动/暂停（运行监控页）</span>
+  <span id="clock"></span>
+</div>
+</div>
+<div id="toast"></div>
+<script src="js/store.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/run.js"></script>
+<script src="js/views.js"></script>
+<script src="js/app.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const host = document.getElementById('three');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.localClippingEnabled = true;
+host.appendChild(renderer.domElement);
+const labelR = new CSS2DRenderer();
+labelR.domElement.className = 'labels';
+host.appendChild(labelR.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf3f4f6);
+scene.fog = new THREE.Fog(0xf3f4f6, 30, 60);
+const pm = new THREE.PMREMGenerator(renderer);
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 200);
+const HOME = { pos: new THREE.Vector3(4.5, 9.0, 14.5), tgt: new THREE.Vector3(0.2, 0.4, 0) };
+camera.position.copy(HOME.pos);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(HOME.tgt);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.53;
+controls.minDistance = 4; controls.maxDistance = 40;
+window.resetView3D = () => { camera.position.copy(HOME.pos); controls.target.copy(HOME.tgt); controls.update(); };
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd5dbe1, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 1.7);
+sun.position.set(4, 14, 9); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 9, bottom: -8, near: 1, far: 45 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, 0.5); fill.position.set(-8, 6, -6); scene.add(fill);
+
+/* ---------- materials ---------- */
+function carbonTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.fillStyle = (i + j) % 2 ? '#2a2e33' : '#16181b'; g.fillRect(i * 8, j * 8, 8, 8); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 16); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const std = (color, metalness, roughness, extra = {}) => new THREE.MeshStandardMaterial({ color, metalness, roughness, ...extra });
+const M = {
+  alu: std(0xe8ebee, 0.55, 0.26, { envMapIntensity: 1.5 }),
+  aluDark: std(0xb9bfc5, 0.6, 0.38, { envMapIntensity: 1.3 }),
+  steel: std(0xd3d8dc, 0.75, 0.22, { envMapIntensity: 1.5 }),
+  carbon: new THREE.MeshPhysicalMaterial({ map: carbonTex(), metalness: 0.2, roughness: 0.4, clearcoat: 1, clearcoatRoughness: 0.06 }),
+  black: std(0x1d2024, 0.35, 0.5),
+  white: std(0xf4f5f6, 0.05, 0.45),
+  nickel: std(0xbab2a5, 0.8, 0.35, { envMapIntensity: 1.3 }),
+  red: std(0xd42a2a, 0.1, 0.45),
+  rubber: std(0xbdbcb4, 0, 0.85),
+  pad: std(0x111111, 0, 0.8),
+  cabinet: std(0xe5e8eb, 0.15, 0.55),
+  door: std(0xedf0f2, 0.1, 0.5),
+  bay: std(0xcfd5da, 0.1, 0.7),
+  tableTop: std(0xd3d8dc, 0.85, 0.28),
+  tableEdge: std(0xb3bac1, 0.85, 0.35),
+  floor: std(0xe6e9ec, 0, 0.9),
+  blue: std(0x2a8fd8, 0.2, 0.4),
+  screen: std(0x1b2430, 0.2, 0.25, { emissive: 0x0d2a40, emissiveIntensity: 0.6 }),
+  amber: new THREE.MeshPhysicalMaterial({ color: 0x7a3a0c, metalness: 0, roughness: 0.08, transparent: true, opacity: 0.78, clearcoat: 1, side: THREE.DoubleSide, depthWrite: false }),
+  label: std(0xf4f4f0, 0, 0.7),
+  vesselIn: std(0xdfe4e8, 0.4, 0.5, { side: THREE.BackSide }),
+  liqRx: new THREE.MeshPhysicalMaterial({ color: 0x3fa6d4, roughness: 0.15, transparent: true, opacity: 0.85, clippingPlanes: [new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)], side: THREE.DoubleSide }),
+  liqB: new THREE.MeshStandardMaterial({ color: 0xe0a24a, roughness: 0.2, transparent: true, opacity: 0.85, clippingPlanes: [new THREE.Plane(new THREE.Vector3(0, -1, 0), 0)], side: THREE.DoubleSide }),
+  stream: new THREE.MeshStandardMaterial({ color: 0xe0a24a, roughness: 0.2, transparent: true, opacity: 0.9 }),
+  puff: new THREE.MeshStandardMaterial({ color: 0xd8e2e8, roughness: 1, transparent: true, opacity: 0.5, depthWrite: false }),
+  led: new THREE.MeshStandardMaterial({ color: 0xff4d4f, emissive: 0xff2020, emissiveIntensity: 1.2 }),
+  valve: std(0x6a737b, 0.6, 0.4),
+};
+
+/* ---------- helpers ---------- */
+const Y = y => (460 - y) / 100;
+function sh(m) { m.castShadow = m.receiveShadow = true; return m; }
+function box(w, h, d, mat, x = 0, y = 0, z = 0, parent = scene, r = 0) {
+  const g = r ? new RoundedBoxGeometry(w, h, d, 3, r) : new THREE.BoxGeometry(w, h, d);
+  const m = sh(new THREE.Mesh(g, mat)); m.position.set(x, y, z); parent.add(m); return m;
+}
+function cyl(rt, rb, h, mat, x = 0, y = 0, z = 0, parent = scene, axis = 'y', seg = 40) {
+  const m = sh(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat));
+  if (axis === 'z') m.rotation.x = Math.PI / 2; if (axis === 'x') m.rotation.z = Math.PI / 2;
+  m.position.set(x, y, z); parent.add(m); return m;
+}
+function pipe(a, b, r, mat) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A);
+  const m = sh(new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 16), mat));
+  m.position.copy(A).add(B).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); scene.add(m); return m;
+}
+function drum(r, len, parent, x = 0, y = 0, z = 0) {
+  const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
+  cyl(r, r, len, M.alu, 0, 0, 0, g, 'z', 48);
+  cyl(r * 0.8, r * 0.8, len + 0.03, M.aluDark, 0, 0, 0, g, 'z', 48);
+  cyl(r * 0.86, r * 0.86, len - 0.06, M.alu, 0, 0, 0, g, 'z', 48);
+  return g;
+}
+
+/* ---------- layout (shared with main script) ---------- */
+const TX0 = -5.6, TX1 = 5.6, D = 4.4;
+const RXP = POS0.rx, CP = POS0.cap, PP = POS0.plug, TP = POS0.tray;
+const BAY0 = RXP.x - 1.6, BAY1 = RXP.x + 1.6;
+
+/* ---------- floor / cabinet / table ---------- */
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), M.floor); floor.rotation.x = -Math.PI / 2; floor.position.y = -4.0; floor.receiveShadow = true; scene.add(floor);
+const grid = new THREE.GridHelper(60, 60, 0xd2d7dc, 0xdde1e5); grid.position.y = -3.995; scene.add(grid);
+box(BAY0 - TX0, 3.72, D, M.cabinet, (TX0 + BAY0) / 2, -2.14, 0);
+box(TX1 - BAY1, 3.72, D, M.cabinet, (BAY1 + TX1) / 2, -2.14, 0);
+box(BAY1 - BAY0, 3.72, 0.1, M.bay, RXP.x, -2.14, -D / 2 + 0.05);
+box(BAY1 - BAY0, 0.12, D, M.cabinet, RXP.x, -3.94, 0);
+const doorW = (BAY0 - TX0 - 0.2) / 3;
+for (let i = 0; i < 3; i++) {
+  const a = TX0 + 0.1 + i * doorW;
+  box(doorW - 0.08, 3.0, 0.04, M.door, a + doorW / 2, -2.3, D / 2 + 0.02);
+  box(0.06, 0.6, 0.06, M.aluDark, a + (i % 2 ? 0.25 : doorW - 0.25), -2.1, D / 2 + 0.07);
+}
+[[0x2fd27a, 0], [0xffb020, 1], [0xff4d4f, 2]].forEach(([c, i]) => { const m = cyl(0.06, 0.06, 0.04, std(c, 0, 0.4, { emissive: c, emissiveIntensity: 0.05 }), TX0 + 0.5 + i * 0.22, -0.7, D / 2 + 0.05, scene, 'z'); m.name = 'lamp' + i; });
+
+const HW = 0.62;
+const top = (x0, x1, z0, z1) => box(x1 - x0, 0.1, z1 - z0, M.tableTop, (x0 + x1) / 2, -0.05, (z0 + z1) / 2);
+top(TX0 - 0.1, RXP.x - HW, -D / 2 - .05, D / 2 + .05); top(RXP.x + HW, TX1 + 0.1, -D / 2 - .05, D / 2 + .05);
+top(RXP.x - HW, RXP.x + HW, RXP.z + HW, D / 2 + .05); top(RXP.x - HW, RXP.x + HW, -D / 2 - .05, RXP.z - HW);
+box(TX1 - TX0 + 0.2, 0.2, 0.06, M.tableEdge, 0, -0.2, D / 2 + 0.08);
+
+/* ---------- reactor (under table, right front) ---------- */
+const rx = new THREE.Group(); rx.position.set(RXP.x, 0, RXP.z); scene.add(rx);
+const outer = [[0.001, -3.58], [0.5, -3.52], [0.85, -3.36], [1.05, -3.12], [1.1, -2.86], [1.1, -1.04]].map(p => new THREE.Vector2(p[0], p[1]));
+const CUT0 = Math.PI * 0.25, CUTL = Math.PI * 1.5;
+rx.add(sh(new THREE.Mesh(new THREE.LatheGeometry(outer, 64, CUT0, CUTL), M.steel)));
+rx.add(new THREE.Mesh(new THREE.LatheGeometry(outer, 64, CUT0, CUTL), M.vesselIn));
+for (const y of [-1.5, -2.6]) { const band = new THREE.Mesh(new THREE.CylinderGeometry(1.14, 1.14, 0.14, 64, 1, true, CUT0, CUTL), new THREE.MeshStandardMaterial({ color: 0x8d969e, metalness: .8, roughness: .4, side: THREE.DoubleSide })); band.position.y = y; rx.add(band); }
+cyl(1.24, 1.24, 0.16, M.steel, 0, -0.96, 0, rx, 'y', 64);
+cyl(0.48, 0.48, 0.94, M.steel, 0, -0.43, 0, rx, 'y', 48);
+cyl(0.86, 0.86, 0.08, M.steel, 0, 0.04, 0, rx, 'y', 64);
+const mouth = cyl(0.42, 0.42, 0.01, M.pad, 0, 0.085, 0, rx);
+cyl(0.03, 0.03, 2.4, M.aluDark, 0.3, -2.1, 0, rx);
+const inner = [[0.001, -3.53], [0.48, -3.47], [0.82, -3.31], [1.01, -3.08], [1.06, -2.86], [1.06, -1.1]].map(p => new THREE.Vector2(p[0], p[1]));
+rx.add(new THREE.Mesh(new THREE.LatheGeometry(inner, 64), M.liqRx));
+const liqTop = new THREE.Mesh(new THREE.CircleGeometry(1.05, 64), M.liqRx); liqTop.rotation.x = -Math.PI / 2; rx.add(liqTop);
+for (const a of [0.6, 2.2, 3.8, 5.3]) cyl(0.05, 0.05, 0.45, M.aluDark, Math.cos(a) * 0.7, -3.75, Math.sin(a) * 0.7, rx);
+const gauge = new THREE.Group(); gauge.position.set(1.3, -1.6, 0.6); rx.add(gauge);
+cyl(0.03, 0.03, 0.3, M.aluDark, -0.16, 0, 0, gauge, 'x');
+cyl(0.2, 0.2, 0.08, M.steel, 0, 0, 0, gauge, 'z');
+cyl(0.17, 0.17, 0.09, M.white, 0, 0, 0.005, gauge, 'z');
+const gNeedle = box(0.015, 0.15, 0.01, M.black, 0, 0, 0.06, gauge); gNeedle.geometry.translate(0, 0.07, 0);
+
+// vent line → valve stack at front-right corner
+const VX = RXP.x + 1.45, VZ = RXP.z + 0.95;
+pipe([RXP.x + 0.9, -0.96, RXP.z + 0.5], [VX, -0.96, VZ], 0.05, M.steel);
+pipe([VX, -0.96, VZ], [VX, 0.62, VZ], 0.05, M.steel);
+const valveBody = box(0.26, 0.26, 0.26, M.valve, VX, 0.32, VZ);
+box(0.22, 0.16, 0.18, M.black, VX - 0.24, 0.32, VZ);
+const ventLed = new THREE.Mesh(new THREE.SphereGeometry(0.04), M.led.clone()); ventLed.position.set(VX - 0.24, 0.44, VZ + 0.05); scene.add(ventLed);
+cyl(0.1, 0.1, 0.18, M.alu, VX, 0.74, VZ);
+const puffs = [];
+for (let i = 0; i < 9; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), M.puff.clone()); scene.add(p); puffs.push(p); }
+
+/* ---------- lid module (lifter behind reactor, lid slides back) ---------- */
+const LCZ = RXP.z - 2.75;
+box(0.32, 2.3, 0.32, M.alu, RXP.x, 1.15, LCZ);
+box(0.42, 0.36, 0.4, M.black, RXP.x, 2.48, LCZ);
+box(0.2, 0.08, 0.02, M.blue, RXP.x, 2.5, LCZ + 0.21);
+const lid = new THREE.Group(); scene.add(lid);
+cyl(0.86, 0.86, 0.16, M.steel, 0, 0.08, 0, lid, 'y', 64);
+const dome = sh(new THREE.Mesh(new THREE.SphereGeometry(0.72, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2), M.steel)); dome.scale.y = 0.45; dome.position.y = 0.16; lid.add(dome);
+cyl(0.12, 0.12, 0.18, M.alu, 0, 0.55, 0, lid);
+cyl(0.05, 0.05, 0.2, M.alu, -0.4, 0.38, 0.2, lid); cyl(0.05, 0.05, 0.18, M.alu, 0.38, 0.36, -0.2, lid);
+const lifterCar = box(0.46, 0.46, 0.48, M.alu, RXP.x, 0, LCZ, scene, 0.03);
+const lifterArm = box(0.2, 0.12, 1, M.alu, RXP.x, 0, 0);
+function arcJaw(side) {
+  const g = new THREE.Group(); scene.add(g);
+  const t = sh(new THREE.Mesh(new THREE.TorusGeometry(0.92, 0.11, 16, 40, Math.PI * 0.7), M.nickel));
+  t.rotation.set(Math.PI / 2, 0, side > 0 ? -Math.PI * 0.35 : Math.PI * 0.65); t.scale.z = 1.7; g.add(t);
+  return g;
+}
+const jawL = arcJaw(-1), jawR = arcJaw(1);
+// clamp drive (right of reactor)
+box(0.5, 0.36, 0.8, M.alu, RXP.x + 1.35, 0.18, RXP.z - 0.1, scene, 0.03);
+box(0.42, 0.62, 0.42, M.black, RXP.x + 1.4, 0.67, RXP.z - 0.35, scene, 0.02);
+box(0.02, 0.14, 0.26, M.blue, RXP.x + 1.18, 0.75, RXP.z - 0.35);
+const lockLed = new THREE.Mesh(new THREE.SphereGeometry(0.05), M.led.clone()); lockLed.position.set(RXP.x + 1.35, 0.38, RXP.z + 0.3); scene.add(lockLed);
+// control display (white housing, back-right like the photo)
+const disp = new THREE.Group(); disp.position.set(RXP.x + 1.3, 0, -1.65); disp.rotation.y = -0.35; scene.add(disp);
+box(1.5, 1.7, 0.35, M.white, 0, 0.85, 0, disp, 0.06);
+box(1.25, 0.9, 0.02, M.screen, 0, 1.05, 0.18, disp);
+
+/* ---------- tray / arm pedestal / decor ---------- */
+box(1.7, 0.06, 1.2, M.alu, TP.x + 0.3, 0.03, TP.z, scene, 0.02);
+box(1.7, 0.12, 0.04, M.aluDark, TP.x + 0.3, 0.09, TP.z + 0.6); box(1.7, 0.12, 0.04, M.aluDark, TP.x + 0.3, 0.09, TP.z - 0.6);
+box(0.04, 0.12, 1.2, M.aluDark, TP.x - 0.55, 0.09, TP.z); box(0.04, 0.12, 1.2, M.aluDark, TP.x + 1.15, 0.09, TP.z);
+box(1.48, 0.12, 1.2, M.alu, BASE.x, 0.06, BASE.z, scene, 0.03);
+cyl(0.54, 0.54, 1.0, M.alu, BASE.x, 0.6, BASE.z, scene, 'y', 64);
+cyl(0.6, 0.6, 0.14, M.aluDark, BASE.x, 1.12, BASE.z, scene, 'y', 64);
+box(0.44, 0.18, 0.05, M.black, BASE.x, 0.3, BASE.z + 0.53);
+cyl(0.18, 0.18, 0.7, M.amber, CP.x - 0.95, 0.35, CP.z + 0.55); cyl(0.1, 0.1, 0.16, M.red, CP.x - 0.95, 0.78, CP.z + 0.55);
+
+/* ---------- opening machine: cap + plug side by side on one frame ---------- */
+const MX = (CP.x + PP.x) / 2, BZ = CP.z - 0.72;
+box(PP.x - CP.x + 1.6, 0.1, 1.5, M.alu, MX, 0.05, CP.z - 0.1, scene, 0.02);
+box(0.42, 3.3, 0.7, M.alu, PP.x + 0.95, 1.65, CP.z - 0.45);
+box(PP.x - CP.x + 1.5, 0.56, 0.9, M.white, MX + 0.15, 3.38, CP.z - 0.55, scene, 0.12);
+for (const s of [CP, PP]) box(0.2, 3.0, 0.16, M.alu, s.x, 1.6, BZ);
+const jaws = {};
+for (const [name, s] of [['cap', CP], ['plug', PP]]) {
+  cyl(0.28, 0.28, 0.1, M.alu, s.x, 0.15, s.z, scene, 'y', 48);
+  cyl(0.42, 0.42, 0.09, M.alu, s.x, 0.24, s.z, scene, 'y', 48);
+  const mk = side => { const g = new THREE.Group(); scene.add(g); box(0.12, 0.44, 0.5, M.alu, 0, 0, 0, g, 0.02); box(0.03, 0.32, 0.36, M.pad, side * 0.07, 0, 0, g); return g; };
+  jaws[name] = [mk(1), mk(-1)];
+}
+// cap head
+const capHead = new THREE.Group(); capHead.position.set(CP.x, 0, CP.z); scene.add(capHead);
+const cfL = box(0.08, 0.28, 0.18, M.nickel, 0, 0, 0, capHead), cfR = box(0.08, 0.28, 0.18, M.nickel, 0, 0, 0, capHead);
+box(0.52, 0.08, 0.36, M.aluDark, 0, 0.18, 0, capHead);
+const sleeve = new THREE.Group(); sleeve.position.y = 0.44; capHead.add(sleeve);
+cyl(0.2, 0.2, 0.44, M.alu, 0, 0, 0, sleeve, 'y', 48); box(0.04, 0.4, 0.06, M.aluDark, 0.19, 0, 0, sleeve); box(0.04, 0.4, 0.06, M.aluDark, -0.19, 0, 0, sleeve);
+box(0.3, 0.16, 0.72, M.alu, 0, 0.74, -0.36, capHead);
+box(0.4, 0.5, 0.2, M.alu, 0, 0.7, -0.62, capHead, 0.02);
+box(0.44, 0.72, 0.44, M.black, 0, 1.18, 0, capHead, 0.02);
+box(0.2, 0.1, 0.02, M.blue, 0.05, 1.3, 0.23, capHead);
+const capOnHead = new THREE.Group(); capHead.add(capOnHead);
+// needle
+const needle = new THREE.Group(); needle.position.set(PP.x, 0, PP.z); scene.add(needle);
+const cone = sh(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.7, 16), M.steel)); cone.rotation.x = Math.PI; cone.position.y = 0.35; needle.add(cone);
+box(0.28, 0.42, 0.3, M.alu, 0, 0.91, 0, needle, 0.02);
+cyl(0.06, 0.06, 0.12, M.white, 0.2, 0.98, 0, needle, 'x');
+box(0.3, 0.16, 0.72, M.alu, 0, 1.06, -0.36, needle);
+box(0.4, 0.5, 0.2, M.alu, 0, 1.02, -0.62, needle, 0.02);
+const bead = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshStandardMaterial({ color: 0x9feaff, emissive: 0x3fc8ff, emissiveIntensity: 0.6 })); bead.position.y = -0.04; needle.add(bead);
+const plugOnNeedle = new THREE.Group(); plugOnNeedle.position.y = 0.19 - 0.75; needle.add(plugOnNeedle);
+
+/* ---------- bottle ---------- */
+function makeCap(parent) {
+  const g = new THREE.Group(); parent.add(g);
+  cyl(0.15, 0.15, 0.24, M.red, 0, 0, 0, g, 'y', 24);
+  box(0.03, 0.2, 0.02, std(0xffffff, 0, .5), 0, 0, 0.15, g);
+  return g;
+}
+function makePlug(parent) {
+  const g = new THREE.Group(); g.position.y = 0.75; parent.add(g);
+  cyl(0.09, 0.075, 0.2, M.rubber, 0, -0.01, 0, g, 'y', 24); cyl(0.105, 0.105, 0.04, M.rubber, 0, 0.09, 0, g, 'y', 24);
+  return g;
+}
+const bottle = new THREE.Group(); scene.add(bottle);
+const bprof = [[0.001, -0.45], [0.24, -0.45], [0.28, -0.41], [0.28, 0.38], [0.24, 0.47], [0.13, 0.53], [0.11, 0.58], [0.11, 0.78], [0.13, 0.79], [0.13, 0.82], [0.09, 0.82]].map(p => new THREE.Vector2(p[0], p[1]));
+const glass = new THREE.Mesh(new THREE.LatheGeometry(bprof, 48), M.amber); glass.renderOrder = 2; bottle.add(glass);
+const bliq = new THREE.Mesh(new THREE.LatheGeometry([[0.001, -0.42], [0.25, -0.42], [0.25, 0.38], [0.2, 0.46], [0.09, 0.56], [0.09, 0.7]].map(p => new THREE.Vector2(p[0], p[1])), 40), M.liqB); bottle.add(bliq);
+const lbl = new THREE.Mesh(new THREE.CylinderGeometry(0.284, 0.284, 0.4, 40, 1, true, -Math.PI * 0.45, Math.PI * 0.9), M.label); lbl.position.y = 0.04; bottle.add(lbl);
+const bCap = makeCap(bottle); bCap.position.y = 0.86;
+const bPlug = makePlug(bottle);
+makeCap(capOnHead);
+makePlug(plugOnNeedle);
+const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.022, 1, 10).translate(0, -0.5, 0), M.stream); scene.add(stream);
+
+/* ---------- robot arm (L1 3.2, L2 3.0) ---------- */
+const armRoot = new THREE.Group(); armRoot.position.set(BASE.x, 0, BASE.z); scene.add(armRoot);
+const SHY = Y(SY), l1 = L1 / 100, l2 = L2 / 100;
+drum(0.56, 0.9, armRoot, 0, SHY, 0);
+const upper = new THREE.Group(); upper.position.set(0, SHY, 0); armRoot.add(upper);
+cyl(0.25, 0.25, l1 - 0.7, M.carbon, l1 / 2, 0, 0, upper, 'x', 40);
+cyl(0.32, 0.32, 0.55, M.alu, 0.4, 0, 0, upper, 'x', 48); cyl(0.32, 0.32, 0.55, M.alu, l1 - 0.4, 0, 0, upper, 'x', 48);
+cyl(0.28, 0.28, 0.08, M.aluDark, 0.7, 0, 0, upper, 'x'); cyl(0.28, 0.28, 0.08, M.aluDark, l1 - 0.7, 0, 0, upper, 'x');
+drum(0.45, 0.76, upper, l1, 0, 0);
+const fore = new THREE.Group(); fore.position.set(l1, 0, 0); upper.add(fore);
+cyl(0.2, 0.2, l2 - 0.6, M.carbon, l2 / 2, 0, 0, fore, 'x', 40);
+cyl(0.26, 0.26, 0.5, M.alu, 0.32, 0, 0, fore, 'x', 48); cyl(0.25, 0.25, 0.48, M.alu, l2 - 0.3, 0, 0, fore, 'x', 48);
+drum(0.33, 0.62, fore, l2, 0, 0);
+const tool = new THREE.Group(); armRoot.add(tool);
+cyl(0.22, 0.22, 0.46, M.alu, 0, -0.23, 0, tool, 'y', 40);
+drum(0.27, 0.5, tool, 0, -0.5, 0);
+cyl(0.2, 0.2, 0.08, M.aluDark, 0, -0.78, 0, tool, 'y', 40);
+box(0.5, 0.2, 0.6, M.black, 0, -0.92, 0, tool, 0.03);
+box(0.16, 0.04, 0.3, M.blue, 0.26, -0.92, 0, tool);
+box(0.12, 0.06, 0.9, M.aluDark, 0, -1.04, 0, tool);
+const fA = box(0.12, 0.34, 0.08, M.alu, 0, -1.2, 0, tool, 0.01), fB = box(0.12, 0.34, 0.08, M.alu, 0, -1.2, 0, tool, 0.01);
+
+/* ---------- labels ---------- */
+const lab = (id, x, y, z) => { const o = new CSS2DObject(document.getElementById(id)); o.position.set(x, y, z); scene.add(o); return o; };
+lab('pl-rx', RXP.x, -0.2, D / 2 + 0.25); lab('pl-tray', TP.x + 0.3, 0.05, TP.z + 0.95); lab('pl-arm', BASE.x, 0.05, BASE.z + 1.0);
+lab('pl-cap', CP.x, 0.05, CP.z + 0.75); lab('pl-plug', PP.x, 0.05, PP.z + 0.75);
+lab('rxTag', BAY0 + 0.1, -1.6, D / 2);
+
+/* ---------- per-frame update ---------- */
+const D2R = Math.PI / 180, v = new THREE.Vector3();
+const lampMats = [0, 1, 2].map(i => scene.getObjectByName('lamp' + i).material);
+window.render3D = rt => {
+  const a = S.arm, k = ik(a.r, a.fy);
+  armRoot.rotation.y = a.j1 * D2R;
+  upper.rotation.z = -k.th1;
+  fore.rotation.z = -(k.th2 - k.th1);
+  tool.position.set(a.r / 100, Y(a.fy), 0);
+  tool.rotation.z = -a.tool * D2R;
+  const off = 0.32 + 0.16 * (1 - a.grip);
+  fA.position.z = off; fB.position.z = -off;
+
+  const b = S.bottle;
+  if (a.holding) { const g = gripWorld(); bottle.position.set(g.x, g.y, g.z); bottle.rotation.set(0, a.j1 * D2R, a.bAng * D2R); }
+  else { bottle.position.set(b.wx, b.wy, b.wz); bottle.rotation.set(0, b.ry * D2R, b.ang * D2R); }
+  bCap.visible = b.cap === 'bottle'; bPlug.visible = b.plug === 'bottle';
+  M.liqB.clippingPlanes[0].constant = bottle.position.y + 0.32 - 0.85 * (1 - b.liquid);
+  bliq.visible = b.liquid > 0.01;
+
+  const r = S.rx, levelY = -3.5 + r.level * 2.4;
+  M.liqRx.clippingPlanes[0].constant = levelY;
+  liqTop.position.y = levelY - 0.002;
+  if (S.pour > 0.01) {
+    v.set(0, 0.82, 0); bottle.localToWorld(v);
+    stream.visible = true; stream.position.copy(v); stream.scale.set(S.pour, Math.max(0.01, v.y - levelY), S.pour);
+  } else stream.visible = false;
+  const lz = RXP.z - 1.6 * r.slide, ly = 0.08 + 0.8 * r.lift;
+  lid.position.set(RXP.x, ly, lz);
+  lifterCar.position.y = ly + 0.62;
+  lifterArm.scale.z = Math.max(0.05, lz - LCZ); lifterArm.position.set(RXP.x, ly + 0.7, (LCZ + lz) / 2);
+  const jo = 0.3 * r.clamp;
+  jawL.position.set(RXP.x - jo, 0.12, RXP.z); jawL.rotation.z = 0.12 * r.clamp;
+  jawR.position.set(RXP.x + jo, 0.12, RXP.z); jawR.rotation.z = -0.12 * r.clamp;
+  mouth.visible = r.lift > 0.05;
+  lockLed.material.color.set(r.locked ? 0xff4d4f : 0x2fd27a); lockLed.material.emissive.set(r.locked ? 0xff2020 : 0x20c060);
+  ventLed.material.color.set(r.vent > .5 ? 0x2fd27a : 0x555555); ventLed.material.emissive.set(r.vent > .5 ? 0x20c060 : 0x000000);
+  valveBody.material.color.set(r.vent > .5 ? 0x2fbf6a : 0x6a737b);
+  gNeedle.rotation.z = (120 - 240 * Math.min(1, r.p / 3)) * D2R;
+  puffs.forEach((p, i) => {
+    const ph = (rt * 0.9 + i / puffs.length) % 1, on = r.vent > .5 && r.p > .01;
+    p.visible = on; p.position.set(VX + Math.sin(i * 2.3 + rt) * 0.08 * ph, 0.84 + ph * 0.9, VZ + Math.cos(i * 1.7) * 0.06 * ph);
+    p.scale.setScalar(0.04 + ph * 0.13); p.material.opacity = (1 - ph) * 0.55 * Math.min(1, r.p / .3 + .2);
+  });
+
+  const cj = S.cap.jaw, pj = S.plug.jaw;
+  jaws.cap[0].position.set(CP.x - 0.48 + 0.14 * cj, Y(426), CP.z); jaws.cap[1].position.set(CP.x + 0.48 - 0.14 * cj, Y(426), CP.z);
+  jaws.plug[0].position.set(PP.x - 0.48 + 0.14 * pj, Y(426), PP.z); jaws.plug[1].position.set(PP.x + 0.48 - 0.14 * pj, Y(426), PP.z);
+  capHead.position.y = Y(309 - S.cap.z);
+  const fo = 0.19 + 0.09 * (1 - S.cap.finger); cfL.position.x = -fo; cfR.position.x = fo;
+  sleeve.rotation.y = -S.cap.rot * D2R; capOnHead.rotation.y = -S.cap.rot * D2R;
+  capOnHead.visible = b.cap === 'head';
+  needle.position.y = Y(339 - S.plug.z);
+  bead.scale.setScalar(0.001 + 0.07 * S.plug.bead);
+  plugOnNeedle.visible = b.plug === 'needle';
+
+  lampMats[0].emissiveIntensity = running && !estop ? 0.9 : 0.05;
+  lampMats[1].emissiveIntensity = !running && !estop ? 0.9 : 0.05;
+  lampMats[2].emissiveIntensity = estop || alarmActive() ? 1.2 : 0.05;
+
+  document.getElementById('rxTag').innerHTML = `<b class="${r.p < P_SAFE ? 'ok' : 'err'}">${r.p.toFixed(r.p < .1 ? 3 : 2)} MPa</b><span>${r.t.toFixed(1)} ℃</span>`;
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelR.render(scene, camera);
+};
+
+function resize() {
+  const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return;
+  renderer.setSize(w, h); labelR.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(host); resize();
+document.getElementById('loading3d')?.remove();
+</script>
+</body>
+</html>
